@@ -6,7 +6,7 @@
     "user_avatar": "user-default.png",
     "amount_gen": 350,
     "max_context": 8192,
-    "main_api": "koboldhorde",
+    "main_api": "openai",
     "world_info_settings": {
         "world_info": {
             "globalSelect": []
@@ -195,6 +195,7 @@
         "enableZenSliders": false,
         "ui_mode": 1,
         "forbid_external_media": true,
+        "auto_connect": true,
         "stscript": {
             "parser": {
                 "flags": {
@@ -260,6 +261,41 @@
         },
         "expressions": {
             "showDefault": false
+        },
+        "connectionManager": {
+            "selectedProfile": "default-jianai-gemini-3-pro-preview",
+            "profiles": [
+                {
+                    "id": "default-jianai-claude-sonnet-45",
+                    "mode": "cc",
+                    "exclude": [],
+                    "api": "custom",
+                    "preset": "Default",
+                    "api-url": "http://127.0.0.1:4141",
+                    "model": "claude-sonnet-4.5",
+                    "proxy": "None",
+                    "stop-strings": "",
+                    "start-reply-with": "",
+                    "reasoning-template": "DeepSeek",
+                    "prompt-post-processing": "none",
+                    "name": "简AI claude-sonnet-4.5"
+                },
+                {
+                    "id": "default-jianai-gemini-3-pro-preview",
+                    "mode": "cc",
+                    "exclude": [],
+                    "api": "custom",
+                    "preset": "Default",
+                    "api-url": "http://127.0.0.1:4141",
+                    "model": "gemini-3-pro-preview",
+                    "proxy": "None",
+                    "stop-strings": "",
+                    "start-reply-with": "",
+                    "reasoning-template": "DeepSeek",
+                    "prompt-post-processing": "none",
+                    "name": "简AI gemini-3-pro-preview"
+                }
+            ]
         },
         "dice": {},
         "regex": [],
@@ -626,7 +662,9 @@
         "ai21_model": "jamba-large",
         "openrouter_model": "OR_Website",
         "reverse_proxy": "",
-        "chat_completion_source": "openai",
+        "chat_completion_source": "custom",
+        "custom_model": "gemini-3-pro-preview",
+        "custom_url": "http://127.0.0.1:4141",
         "max_context_unlocked": false,
         "api_url_scale": "",
         "show_external_models": false,

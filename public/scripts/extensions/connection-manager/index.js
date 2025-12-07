@@ -24,6 +24,13 @@ const DEFAULT_SETTINGS = {
     selectedProfile: null,
 };
 
+// Profile names that should have their edit controls hidden (locked profiles)
+const LOCKED_PROFILE_NAMES = [
+    '简AI claude-sonnet-4.5',
+    '简AI claude-sonnet-4.5 ',
+    '简AI gemini-3-pro-preview',
+];
+
 // Commands that can record an empty value into the profile
 const ALLOW_EMPTY = [
     'stop-strings',
@@ -494,8 +501,43 @@ async function renderDetailsContent(detailsContent) {
 
     function toggleProfileSpecificButtons() {
         const profileId = extension_settings.connectionManager.selectedProfile;
+        const profile = extension_settings.connectionManager.profiles.find(p => p.id === profileId);
+        const isLocked = profile && LOCKED_PROFILE_NAMES.some(name => profile.name?.trim() === name.trim());
+
+        // Buttons that require a profile to be selected
         const profileSpecificButtons = ['update_connection_profile', 'reload_connection_profile', 'delete_connection_profile'];
         profileSpecificButtons.forEach(id => document.getElementById(id).classList.toggle('disabled', !profileId));
+
+        // Buttons that should be hidden for locked profiles (editing controls)
+        const editButtons = ['update_connection_profile', 'edit_connection_profile', 'reload_connection_profile', 'delete_connection_profile', 'create_connection_profile', 'view_connection_profile'];
+        editButtons.forEach(id => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.classList.toggle('hidden', isLocked);
+            }
+        });
+
+        // Additional elements to hide for locked profiles (API configuration UI)
+        const additionalElementsToHide = [
+            'title_api',                    // API title
+            'viewSecrets',                  // View hidden API keys link
+            'main-API-selector-block',      // Main API selector dropdown container
+        ];
+        additionalElementsToHide.forEach(id => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.classList.toggle('hidden', isLocked);
+            }
+        });
+
+        // Hide the entire API configuration section (kobold_horde, kobold_api, novel_api, textgenerationwebui_api, openai_api)
+        const apiSections = ['kobold_horde', 'kobold_api', 'novel_api', 'textgenerationwebui_api', 'openai_api'];
+        apiSections.forEach(id => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.classList.toggle('hidden', isLocked);
+            }
+        });
     }
     toggleProfileSpecificButtons();
 
