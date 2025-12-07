@@ -1560,6 +1560,50 @@ aimlapi.post('/generate-image', async (req, res) => {
     }
 });
 
+const jianai = express.Router();
+
+jianai.post('/generate', async (request, response) => {
+    try {
+        const { prompt } = request.body;
+
+        console.info('简AI image generation request:', prompt);
+
+        const result = await fetch('http://127.0.0.1:8189/generate', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                prompt: prompt,
+            }),
+        });
+
+        if (!result.ok) {
+            const text = await result.text();
+            console.warn('简AI returned an error.', result.status, result.statusText, text);
+            return response.status(500).send(text);
+        }
+
+        const data = await result.json();
+
+        // Handle different response formats
+        if (data.image) {
+            return response.send({ image: data.image });
+        } else if (data.images && data.images.length > 0) {
+            return response.send({ image: data.images[0] });
+        } else if (data.data) {
+            return response.send({ image: data.data });
+        } else {
+            // If response is raw base64 or buffer
+            const buffer = await result.arrayBuffer();
+            return response.send({ image: Buffer.from(buffer).toString('base64') });
+        }
+    } catch (error) {
+        console.error('简AI image generation error:', error);
+        return response.status(500).send(String(error));
+    }
+});
+
 router.use('/comfy', comfy);
 router.use('/together', together);
 router.use('/drawthings', drawthings);
@@ -1572,3 +1616,4 @@ router.use('/bfl', bfl);
 router.use('/falai', falai);
 router.use('/xai', xai);
 router.use('/aimlapi', aimlapi);
+router.use('/jianai', jianai);

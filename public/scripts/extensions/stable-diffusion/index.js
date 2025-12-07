@@ -87,6 +87,7 @@ const sources = {
     falai: 'falai',
     xai: 'xai',
     google: 'google',
+    jianai: 'jianai',
 };
 
 const initiators = {
@@ -219,7 +220,7 @@ const defaultStyles = [
 const placeholderVae = 'Automatic';
 
 const defaultSettings = {
-    source: sources.extras,
+    source: sources.jianai,
 
     // CFG Scale
     scale_min: 1,
@@ -319,6 +320,9 @@ const defaultSettings = {
     // ComyUI settings
     comfy_url: 'http://127.0.0.1:8188',
     comfy_workflow: 'Default_Comfy_Workflow.json',
+
+    // 简AI settings
+    jianai_url: 'http://127.0.0.1:8189',
 
     // Pollinations settings
     pollinations_enhance: false,
@@ -428,10 +432,26 @@ function getSdRequestBody() {
 }
 
 function toggleSourceControls() {
-    $('.sd_settings [data-sd-source]').each(function () {
-        const source = $(this).data('sd-source').split(',');
-        $(this).toggle(source.includes(extension_settings.sd.source));
-    });
+    const isJianai = extension_settings.sd.source === sources.jianai;
+
+    // For jianai source, hide all settings except the source dropdown and jianai URL
+    if (isJianai) {
+        // Hide everything inside inline-drawer-content except the source label and select
+        $('.sd_settings .inline-drawer-content').children().hide();
+        $('.sd_settings [for="sd_source"]').show();
+        $('.sd_settings #sd_source').show();
+        // Show jianai-specific settings
+        $('.sd_settings [data-sd-source="jianai"]').show();
+    } else {
+        // Show everything inside inline-drawer-content
+        $('.sd_settings .inline-drawer-content').children().show();
+
+        // Toggle source-specific controls
+        $('.sd_settings [data-sd-source]').each(function () {
+            const source = $(this).data('sd-source').split(',');
+            $(this).toggle(source.includes(extension_settings.sd.source));
+        });
+    }
 }
 
 async function loadSettings() {
@@ -514,6 +534,7 @@ async function loadSettings() {
     $('#sd_openai_duration').val(extension_settings.sd.openai_duration);
     $('#sd_comfy_url').val(extension_settings.sd.comfy_url);
     $('#sd_comfy_prompt').val(extension_settings.sd.comfy_prompt);
+    $('#sd_jianai_url').val(extension_settings.sd.jianai_url);
     $('#sd_snap').prop('checked', extension_settings.sd.snap);
     $('#sd_clip_skip').val(extension_settings.sd.clip_skip);
     $('#sd_clip_skip_value').val(extension_settings.sd.clip_skip);
@@ -748,6 +769,12 @@ async function refinePrompt(prompt, isNegative) {
 
 async function onChatChanged() {
     if (this_chid === undefined || selected_group) {
+        $('#sd_character_prompt_block').hide();
+        return;
+    }
+
+    // Don't show character prompt block for jianai source
+    if (extension_settings.sd.source === sources.jianai) {
         $('#sd_character_prompt_block').hide();
         return;
     }
@@ -1112,6 +1139,11 @@ function onAutoUrlInput() {
     saveSettingsDebounced();
 }
 
+function onJianaiUrlInput() {
+    extension_settings.sd.jianai_url = $('#sd_jianai_url').val();
+    saveSettingsDebounced();
+}
+
 function onAutoAuthInput() {
     extension_settings.sd.auto_auth = $('#sd_auto_auth').val();
     saveSettingsDebounced();
@@ -1319,6 +1351,7 @@ async function onModelChange() {
         sources.falai,
         sources.xai,
         sources.google,
+        sources.jianai,
     ];
 
     if (cloudSources.includes(extension_settings.sd.source)) {
@@ -1546,6 +1579,9 @@ async function loadSamplers() {
         case sources.google:
             samplers = ['N/A'];
             break;
+        case sources.jianai:
+            samplers = ['N/A'];
+            break;
     }
 
     for (const sampler of samplers) {
@@ -1747,6 +1783,9 @@ async function loadModels() {
             break;
         case sources.google:
             models = await loadGoogleModels();
+            break;
+        case sources.jianai:
+            models = [{ value: 'jianai', text: '简AI' }];
             break;
     }
 
@@ -2293,6 +2332,9 @@ async function loadSchedulers() {
         case sources.google:
             schedulers = ['N/A'];
             break;
+        case sources.jianai:
+            schedulers = ['N/A'];
+            break;
     }
 
     for (const scheduler of schedulers) {
@@ -2391,6 +2433,9 @@ async function loadVaes() {
             vaes = ['N/A'];
             break;
         case sources.google:
+            vaes = ['N/A'];
+            break;
+        case sources.jianai:
             vaes = ['N/A'];
             break;
     }
@@ -2984,6 +3029,9 @@ async function sendGenerationRequest(generationType, prompt, additionalNegativeP
                 break;
             case sources.google:
                 result = await generateGoogleImage(prefixedPrompt, negativePrompt, signal);
+                break;
+            case sources.jianai:
+                result = await generateJianaiImage(prompt, signal);
                 break;
         }
 
@@ -3771,6 +3819,34 @@ async function generateComfyImage(prompt, negativePrompt, signal) {
     return { format, data };
 }
 
+/**
+ * Generates an image using 简AI API.
+ * @param {string} prompt - The main instruction used to guide the image generation.
+ * @param {AbortSignal} signal - An AbortSignal object that can be used to cancel the request.
+ * @returns {Promise<{format: string, data: string}>} - A promise that resolves when the image generation and processing are complete.
+ */
+async function generateJianaiImage(prompt, signal) {
+    const baseUrl = extension_settings.sd.jianai_url.replace(/\/+$/, '');
+    const result = await fetch(`${baseUrl}/generate`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        signal: signal,
+        body: JSON.stringify({
+            prompt: prompt,
+        }),
+    });
+
+    if (result.ok) {
+        const data = await result.json();
+        return { format: 'png', data: data.image };
+    } else {
+        const text = await result.text();
+        throw new Error(text);
+    }
+}
+
 
 /**
  * Generates an image in Hugging Face Inference API using the provided prompt and configuration settings (model selected).
@@ -4325,6 +4401,8 @@ function isValidState() {
             return secret_state[SECRET_KEYS.XAI];
         case sources.google:
             return secret_state[SECRET_KEYS.MAKERSUITE] || secret_state[SECRET_KEYS.VERTEXAI] || secret_state[SECRET_KEYS.VERTEXAI_SERVICE_ACCOUNT];
+        case sources.jianai:
+            return true;
     }
 }
 
@@ -4956,6 +5034,7 @@ jQuery(async () => {
     $('#sd_pollinations_enhance').on('input', onPollinationsEnhanceInput);
     $('#sd_comfy_validate').on('click', validateComfyUrl);
     $('#sd_comfy_url').on('input', onComfyUrlInput);
+    $('#sd_jianai_url').on('input', onJianaiUrlInput);
     $('#sd_comfy_workflow').on('change', onComfyWorkflowChange);
     $('#sd_comfy_open_workflow_editor').on('click', onComfyOpenWorkflowEditorClick);
     $('#sd_comfy_new_workflow').on('click', onComfyNewWorkflowClick);

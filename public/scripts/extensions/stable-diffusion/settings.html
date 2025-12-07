@@ -37,6 +37,7 @@
             </label>
             <label for="sd_source" data-i18n="Source">Source</label>
             <select id="sd_source">
+                <option value="jianai">简AI</option>
                 <option value="aimlapi">AI/ML API</option>
                 <option value="bfl">BFL (Black Forest Labs)</option>
                 <option value="comfy">ComfyUI</option>
@@ -57,6 +58,10 @@
                 <option value="togetherai">TogetherAI</option>
                 <option value="xai">xAI (Grok)</option>
             </select>
+            <div data-sd-source="jianai">
+                <label for="sd_jianai_url">简AI URL</label>
+                <input id="sd_jianai_url" type="text" class="text_pole" placeholder="http://127.0.0.1:8189" value="" />
+            </div>
             <div data-sd-source="auto">
                 <label for="sd_auto_url">SD Web UI URL</label>
                 <div class="flex-container flexnowrap">
