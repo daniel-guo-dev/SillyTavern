@@ -9,6 +9,8 @@ body.tts .mes[is_system="true"] .mes_narrate {
 }
 
 body.sd .sd_message_gen,
+body.sd .sd_message_gen_shortcut,
+body.sd .sd_message_gen_advanced,
 body.translate .mes_translate,
 body.tts .mes_narrate {
     display: inline-block;

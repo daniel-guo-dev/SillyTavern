@@ -456,6 +456,9 @@ function toggleSourceControls() {
             $(this).toggle(source.includes(extension_settings.sd.source));
         });
     }
+
+    // Toggle jianai-specific message buttons (shortcut and advanced)
+    $('.sd_message_gen_shortcut, .sd_message_gen_advanced').toggle(isJianai);
 }
 
 async function loadSettings() {
