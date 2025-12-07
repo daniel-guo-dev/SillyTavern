@@ -1020,6 +1020,7 @@
     "Message Actions": "Дії з повідомленнями",
     "Translate message": "Перекласти повідомлення",
     "Generate Image": "Створити зображення",
+    "Generate Image Advanced": "Створити зображення (розширений)",
     "Narrate": "Розповідати",
     "Exclude message from prompts": "Виключити повідомлення з підказок",
     "Include message in prompts": "Включити повідомлення в підказки",

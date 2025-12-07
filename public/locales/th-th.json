@@ -1032,6 +1032,7 @@
   "Message Actions": "การดำเนินการกับข้อความ , การจัดการข้อความ",
   "Translate message": "แปลข้อความ",
   "Generate Image": "สร้างภาพ",
+  "Generate Image Advanced": "สร้างภาพขั้นสูง",
   "Narrate": "บรรยาย",
   "Exclude message from prompts": "ไม่รวมข้อความนี้ในพรอมต์",
   "Include message in prompts": "รวมข้อความนี้ในพรอมต์",

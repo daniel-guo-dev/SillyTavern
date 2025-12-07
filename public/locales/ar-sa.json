@@ -1022,6 +1022,7 @@
     "Message Actions": "إجراءات الرسالة",
     "Translate message": "ترجمة الرسالة",
     "Generate Image": "إنشاء صورة",
+    "Generate Image Advanced": "إنشاء صورة متقدم",
     "Narrate": "سرد",
     "Exclude message from prompts": "استثناء الرسالة من التلميحات",
     "Include message in prompts": "تضمين الرسالة في التلميحات",

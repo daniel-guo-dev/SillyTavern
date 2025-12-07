@@ -54,6 +54,7 @@ const STORAGE_KEYS = {
  * @property {string} salt - Salt used for hashing the password
  * @property {boolean} enabled - Whether the user is enabled
  * @property {boolean} admin - Whether the user is an admin (can manage other users)
+ * @property {number} [credit] - The user's credit balance (default 0)
  */
 
 /**
@@ -65,6 +66,7 @@ const STORAGE_KEYS = {
  * @property {boolean} password - Whether the user is password protected
  * @property {boolean} [enabled] - Whether the user is enabled
  * @property {number} [created] - The timestamp when the user was created
+ * @property {number} [credit] - The user's credit balance
  */
 
 /**
@@ -1067,6 +1069,58 @@ async function getAllUsers() {
 export async function getAllEnabledUsers() {
     const users = await getAllUsers();
     return users.filter(x => x.enabled);
+}
+
+/**
+ * Gets the credit balance for a user.
+ * @param {string} handle User handle
+ * @returns {Promise<number>} User's credit balance (defaults to 0 if not set)
+ */
+export async function getUserCredit(handle) {
+    /** @type {User} */
+    const user = await storage.getItem(toKey(handle));
+    if (!user) {
+        return 0;
+    }
+    return user.credit ?? 0;
+}
+
+/**
+ * Sets the credit balance for a user.
+ * @param {string} handle User handle
+ * @param {number} credit New credit balance
+ * @returns {Promise<boolean>} Whether the operation was successful
+ */
+export async function setUserCredit(handle, credit) {
+    /** @type {User} */
+    const user = await storage.getItem(toKey(handle));
+    if (!user) {
+        return false;
+    }
+    user.credit = credit;
+    await storage.setItem(toKey(handle), user);
+    return true;
+}
+
+/**
+ * Deducts credit from a user.
+ * @param {string} handle User handle
+ * @param {number} amount Amount to deduct (default 1)
+ * @returns {Promise<{success: boolean, newBalance: number, message?: string}>} Result of the deduction
+ */
+export async function deductUserCredit(handle, amount = 1) {
+    /** @type {User} */
+    const user = await storage.getItem(toKey(handle));
+    if (!user) {
+        return { success: false, newBalance: 0, message: 'User not found' };
+    }
+    const currentCredit = user.credit ?? 0;
+    if (currentCredit < amount) {
+        return { success: false, newBalance: currentCredit, message: 'Insufficient credit' };
+    }
+    user.credit = currentCredit - amount;
+    await storage.setItem(toKey(handle), user);
+    return { success: true, newBalance: user.credit };
 }
 
 /**

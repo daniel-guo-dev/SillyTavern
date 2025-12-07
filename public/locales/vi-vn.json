@@ -1020,6 +1020,7 @@
     "Message Actions": "Hành động tin nhắn",
     "Translate message": "Dịch tin nhắn",
     "Generate Image": "Tạo Hình ảnh",
+    "Generate Image Advanced": "Tạo Hình ảnh Nâng cao",
     "Narrate": "Dẫn chuyện",
     "Exclude message from prompts": "Loại trừ tin nhắn khỏi các Prompt",
     "Include message in prompts": "Bao gồm tin nhắn trong các Prompt",

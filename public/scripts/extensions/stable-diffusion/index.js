@@ -2,14 +2,17 @@ import { Popper } from '../../../lib.js';
 import {
     animation_duration,
     appendMediaToMessage,
+    chat,
     event_types,
     eventSource,
     formatCharacterAvatar,
+    Generate,
     generateQuietPrompt,
     getCharacterAvatar,
     getCurrentChatId,
     getRequestHeaders,
     getUserAvatar,
+    name1,
     saveSettingsDebounced,
     substituteParams,
     substituteParamsExtended,
@@ -323,6 +326,7 @@ const defaultSettings = {
 
     // 简AI settings
     jianai_url: 'http://127.0.0.1:8189',
+    jianai_prompt: 'provide me the prompt for the current scene for image generation.',
 
     // Pollinations settings
     pollinations_enhance: false,
@@ -535,6 +539,7 @@ async function loadSettings() {
     $('#sd_comfy_url').val(extension_settings.sd.comfy_url);
     $('#sd_comfy_prompt').val(extension_settings.sd.comfy_prompt);
     $('#sd_jianai_url').val(extension_settings.sd.jianai_url);
+    $('#sd_jianai_prompt').val(extension_settings.sd.jianai_prompt);
     $('#sd_snap').prop('checked', extension_settings.sd.snap);
     $('#sd_clip_skip').val(extension_settings.sd.clip_skip);
     $('#sd_clip_skip_value').val(extension_settings.sd.clip_skip);
@@ -1141,6 +1146,11 @@ function onAutoUrlInput() {
 
 function onJianaiUrlInput() {
     extension_settings.sd.jianai_url = $('#sd_jianai_url').val();
+    saveSettingsDebounced();
+}
+
+function onJianaiPromptInput() {
+    extension_settings.sd.jianai_prompt = $('#sd_jianai_prompt').val();
     saveSettingsDebounced();
 }
 
@@ -4321,6 +4331,8 @@ async function addSDGenButtons() {
     });
 
     $(document).on('click', '.sd_message_gen', (e) => sdMessageButton($(e.currentTarget), { animate: false }));
+    $(document).on('click', '.sd_message_gen_shortcut', (e) => sdMessageButton($(e.currentTarget), { animate: false }));
+    $(document).on('click', '.sd_message_gen_advanced', (e) => sdMessageButtonAdvanced($(e.currentTarget)));
 
     $(document).on('click touchend', function (e) {
         const target = $(e.target);
@@ -4409,6 +4421,34 @@ function isValidState() {
 let buttonAbortController = null;
 
 /**
+ * Sets the busy state for both image generation buttons on a message.
+ * @param {JQuery<HTMLElement>} messageElement The message element containing the buttons.
+ * @param {boolean} isBusy Whether the buttons should indicate a busy state.
+ */
+function setImageButtonsBusy(messageElement, isBusy) {
+    const $paintbrush = messageElement.find('.sd_message_gen_shortcut');
+    const $wand = messageElement.find('.sd_message_gen_advanced');
+
+    // Toggle paintbrush button
+    $paintbrush.toggleClass('fa-paintbrush', !isBusy);
+    $paintbrush.toggleClass('fa-hourglass', isBusy);
+
+    // Toggle wand button
+    $wand.toggleClass('fa-wand-magic-sparkles', !isBusy);
+    $wand.toggleClass('fa-hourglass', isBusy);
+}
+
+/**
+ * Checks if any image generation is currently in progress for a message.
+ * @param {JQuery<HTMLElement>} messageElement The message element containing the buttons.
+ * @returns {boolean} True if generation is in progress.
+ */
+function isImageGenerationBusy(messageElement) {
+    return messageElement.find('.sd_message_gen_shortcut').hasClass('fa-hourglass') ||
+           messageElement.find('.sd_message_gen_advanced').hasClass('fa-hourglass');
+}
+
+/**
  * "Paintbrush" button handler to generate a new image for a message.
  * @param {JQuery<HTMLElement>} $icon The click target.
  * @param {Object} [options] Additional options for image generation.
@@ -4416,28 +4456,18 @@ let buttonAbortController = null;
  * @returns {Promise<void>} A promise that resolves when the image generation process is complete.
  */
 async function sdMessageButton($icon, { animate } = {}) {
-    /**
-     * Sets the icon to indicate busy or idle state.
-     * @param {boolean} isBusy Whether the icon should indicate a busy state.
-     */
-    function setBusyIcon(isBusy) {
-        $icon.toggleClass(classes.idle, !isBusy);
-        $icon.toggleClass(classes.busy, isBusy);
-        $media.toggleClass(classes.animation, isBusy);
-    }
-
     let $media = jQuery();
 
-    const classes = { busy: 'fa-hourglass', idle: 'fa-paintbrush', animation: 'fa-fade' };
     const context = getContext();
+    const messageElement = $icon.closest('.mes');
 
-    if ($icon.hasClass(classes.busy)) {
+    // Check if any image generation is already in progress
+    if (isImageGenerationBusy(messageElement)) {
         buttonAbortController?.abort('Aborted by user');
         console.log('Previous image is still being generated...');
         return;
     }
 
-    const messageElement = $icon.closest('.mes');
     const messageId = Number(messageElement.attr('mesid'));
 
     /** @type {ChatMessage} */
@@ -4470,8 +4500,14 @@ async function sdMessageButton($icon, { animate } = {}) {
     const newMediaAttachment = await generateMediaSwipe(
         selectedMedia,
         message,
-        () => setBusyIcon(true),
-        () => setBusyIcon(false),
+        () => {
+            setImageButtonsBusy(messageElement, true);
+            $media.toggleClass('fa-fade', true);
+        },
+        () => {
+            setImageButtonsBusy(messageElement, false);
+            $media.toggleClass('fa-fade', false);
+        },
         buttonAbortController,
     );
 
@@ -4487,6 +4523,125 @@ async function sdMessageButton($icon, { animate } = {}) {
     appendMediaToMessage(message, messageElement, SCROLL_BEHAVIOR.KEEP);
 
     await context.saveChat();
+}
+
+/**
+ * "Magic Wand" button handler to generate a new image using LLM-generated prompt.
+ * This function asks the LLM to generate an image prompt based on the conversation
+ * up to the selected message, then uses that prompt for image generation.
+ * @param {JQuery<HTMLElement>} $icon The click target.
+ * @returns {Promise<void>} A promise that resolves when the image generation process is complete.
+ */
+async function sdMessageButtonAdvanced($icon) {
+    const context = getContext();
+    const messageElement = $icon.closest('.mes');
+
+    // Check if any image generation is already in progress
+    if (isImageGenerationBusy(messageElement)) {
+        console.log('Previous image generation is still in progress...');
+        return;
+    }
+
+    const messageId = Number(messageElement.attr('mesid'));
+
+    /** @type {ChatMessage} */
+    const message = context.chat[messageId];
+
+    if (!message) {
+        console.error('Could not find message for SD advanced generation button');
+        return;
+    }
+
+    if (!message.extra || typeof message.extra !== 'object') {
+        message.extra = {};
+    }
+
+    if (!Array.isArray(message.extra.media)) {
+        message.extra.media = [];
+    }
+
+    // Save original chat array
+    const originalChat = [...chat];
+
+    setImageButtonsBusy(messageElement, true);
+
+    try {
+        let llmPrompt = '';
+
+        // Save and disable show_thoughts to exclude reasoning from the response
+        const originalShowThoughts = oai_settings.show_thoughts;
+        oai_settings.show_thoughts = false;
+
+        try {
+            // Truncate chat to only include messages up to and including the selected message
+            chat.length = messageId + 1;
+
+            // Add a temporary user message asking for image generation prompt
+            const userMessage = {
+                name: name1,
+                is_user: true,
+                is_system: false,
+                mes: extension_settings.sd.jianai_prompt,
+                extra: {},
+            };
+            chat.push(userMessage);
+
+            // Ask LLM to generate image prompt based on the conversation context
+            console.log('Generating image prompt from LLM...');
+            llmPrompt = await Generate('quiet', { force_name2: true });
+        } finally {
+            // Restore original chat array immediately after Generate completes
+            chat.length = 0;
+            chat.push(...originalChat);
+
+            // Restore original show_thoughts setting
+            oai_settings.show_thoughts = originalShowThoughts;
+        }
+
+        if (!llmPrompt || !llmPrompt.trim()) {
+            toastr.error('LLM did not return a valid image prompt.', 'Image Generation');
+            return;
+        }
+
+        console.log('LLM generated prompt:', llmPrompt);
+
+        // Generate image using the LLM-provided prompt
+        const result = await generateJianaiImage(llmPrompt.trim(), new AbortController().signal);
+
+        if (!result || !result.data) {
+            toastr.error('Image generation failed.', 'Image Generation');
+            return;
+        }
+
+        // Save the generated image
+        const filename = `${getCurrentChatId()}_${Date.now()}.${result.format}`;
+        const imageUrl = await saveBase64AsFile(result.data, getCurrentChatId(), filename, result.format);
+
+        /** @type {MediaAttachment} */
+        const newMediaAttachment = {
+            url: imageUrl,
+            title: llmPrompt.trim(),
+            type: MEDIA_TYPE.IMAGE,
+            source: MEDIA_SOURCE.GENERATED,
+            generation_type: generationMode.FREE,
+        };
+
+        // If already contains an image and it's not inline - leave it as is
+        message.extra.inline_image = !(message.extra.media.length && !message.extra.inline_image);
+        message.extra.media.push(newMediaAttachment);
+        message.extra.media_index = message.extra.media.length - 1;
+
+        appendMediaToMessage(message, messageElement, SCROLL_BEHAVIOR.KEEP);
+
+        await context.saveChat();
+
+        toastr.success('Image generated successfully!', 'Image Generation');
+    } catch (err) {
+        console.error('Advanced image generation error:', err);
+        toastr.error('Advanced image generation failed: ' + String(err), 'Image Generation');
+    } finally {
+        setImageButtonsBusy(messageElement, false);
+    }
 }
 
 async function onCharacterPromptShareInput() {
@@ -5035,6 +5190,7 @@ jQuery(async () => {
     $('#sd_comfy_validate').on('click', validateComfyUrl);
     $('#sd_comfy_url').on('input', onComfyUrlInput);
     $('#sd_jianai_url').on('input', onJianaiUrlInput);
+    $('#sd_jianai_prompt').on('input', onJianaiPromptInput);
     $('#sd_comfy_workflow').on('change', onComfyWorkflowChange);
     $('#sd_comfy_open_workflow_editor').on('click', onComfyOpenWorkflowEditorClick);
     $('#sd_comfy_new_workflow').on('click', onComfyNewWorkflowClick);

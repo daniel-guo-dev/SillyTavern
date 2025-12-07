@@ -5,7 +5,7 @@ import crypto from 'node:crypto';
 import storage from 'node-persist';
 import express from 'express';
 
-import { getUserAvatar, toKey, getPasswordHash, getPasswordSalt, createBackupArchive, ensurePublicDirectoriesExist, toAvatarKey } from '../users.js';
+import { getUserAvatar, toKey, getPasswordHash, getPasswordSalt, createBackupArchive, ensurePublicDirectoriesExist, toAvatarKey, getUserCredit, deductUserCredit } from '../users.js';
 import { SETTINGS_FILE } from '../constants.js';
 import { checkForNewContent, CONTENT_TYPES } from './content-manager.js';
 import { color, Cache } from '../util.js';
@@ -250,6 +250,40 @@ router.post('/reset-step2', async (request, response) => {
         return response.sendStatus(204);
     } catch (error) {
         console.error('Recover step 2 failed:', error);
+        return response.sendStatus(500);
+    }
+});
+
+router.get('/credit', async (request, response) => {
+    try {
+        if (!request.user) {
+            return response.sendStatus(403);
+        }
+
+        const credit = await getUserCredit(request.user.profile.handle);
+        return response.json({ credit });
+    } catch (error) {
+        console.error('Get credit failed:', error);
+        return response.sendStatus(500);
+    }
+});
+
+router.post('/credit/deduct', async (request, response) => {
+    try {
+        if (!request.user) {
+            return response.sendStatus(403);
+        }
+
+        const amount = request.body.amount ?? 1;
+        const result = await deductUserCredit(request.user.profile.handle, amount);
+
+        if (!result.success) {
+            return response.status(400).json({ error: result.message, credit: result.newBalance });
+        }
+
+        return response.json({ success: true, credit: result.newBalance });
+    } catch (error) {
+        console.error('Deduct credit failed:', error);
         return response.sendStatus(500);
     }
 });

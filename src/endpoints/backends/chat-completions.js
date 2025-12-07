@@ -56,6 +56,77 @@ import {
     getWebTokenizer,
 } from '../tokenizers.js';
 import { getVertexAIAuth, getProjectIdFromServiceAccount } from '../google.js';
+import { getUserCredit, deductUserCredit } from '../../users.js';
+
+// Reverse proxy URLs that require credit deduction
+const CREDIT_REQUIRED_PROXY_URLS = [
+    'jianai.ai',
+    '简ai',
+    '127.0.0.1:4141',
+    'localhost:4141',
+];
+
+/**
+ * Checks if the request requires credit deduction based on the reverse proxy or custom URL.
+ * @param {import('express').Request} request Express request
+ * @returns {boolean} True if credit deduction is required
+ */
+function requiresCreditDeduction(request) {
+    const reverseProxy = request.body?.reverse_proxy;
+    const customUrl = request.body?.custom_url;
+
+    console.debug(`[Credit Check] reverse_proxy: ${reverseProxy}, custom_url: ${customUrl}`);
+
+    // Check reverse_proxy
+    if (reverseProxy) {
+        const proxyLower = reverseProxy.toLowerCase();
+        if (CREDIT_REQUIRED_PROXY_URLS.some(url => proxyLower.includes(url.toLowerCase()))) {
+            console.debug('[Credit Check] Matched reverse_proxy, credit required');
+            return true;
+        }
+    }
+
+    // Check custom_url
+    if (customUrl) {
+        const customLower = customUrl.toLowerCase();
+        if (CREDIT_REQUIRED_PROXY_URLS.some(url => customLower.includes(url.toLowerCase()))) {
+            console.debug('[Credit Check] Matched custom_url, credit required');
+            return true;
+        }
+    }
+
+    console.debug('[Credit Check] No match, credit not required');
+    return false;
+}
+
+/**
+ * Deducts credit from the user if required.
+ * @param {import('express').Request} request Express request
+ * @returns {Promise<{success: boolean, error?: string}>} Result of the credit check/deduction
+ */
+async function handleCreditDeduction(request) {
+    if (!requiresCreditDeduction(request)) {
+        return { success: true };
+    }
+
+    const userHandle = request.user?.profile?.handle;
+    if (!userHandle) {
+        return { success: false, error: 'User not authenticated' };
+    }
+
+    const currentCredit = await getUserCredit(userHandle);
+    if (currentCredit <= 0) {
+        return { success: false, error: 'Insufficient credit' };
+    }
+
+    const result = await deductUserCredit(userHandle, 1);
+    if (!result.success) {
+        return { success: false, error: result.message || 'Failed to deduct credit' };
+    }
+
+    console.info(`Credit deducted for user ${userHandle}. Remaining: ${result.newBalance}`);
+    return { success: true };
+}
 
 const API_OPENAI = 'https://api.openai.com/v1';
 const API_CLAUDE = 'https://api.anthropic.com/v1';
@@ -1743,8 +1814,14 @@ router.post('/bias', async function (request, response) {
 });
 
 
-router.post('/generate', function (request, response) {
+router.post('/generate', async function (request, response) {
     if (!request.body) return response.status(400).send({ error: true });
+
+    // Check and deduct credit if required
+    const creditResult = await handleCreditDeduction(request);
+    if (!creditResult.success) {
+        return response.status(403).send({ error: true, message: creditResult.error });
+    }
 
     const postProcessingType = request.body.custom_prompt_post_processing;
     if (Array.isArray(request.body.messages) && postProcessingType) {

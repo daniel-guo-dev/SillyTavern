@@ -1020,6 +1020,7 @@
     "Message Actions": "Skilaboðaaðgerðir",
     "Translate message": "Þýða skilaboð",
     "Generate Image": "Búa til mynd",
+    "Generate Image Advanced": "Búa til mynd (háþróað)",
     "Narrate": "Segja frá",
     "Exclude message from prompts": "Útiloka skilaboð frá hvatningum",
     "Include message in prompts": "Innifera skilaboð í hvatningum",

@@ -670,6 +670,7 @@
         "show_external_models": false,
         "proxy_password": "",
         "assistant_prefill": "",
-        "assistant_impersonation": ""
+        "assistant_impersonation": "",
+        "image_inlining": false
     }
 }

@@ -866,4 +866,21 @@ async function renderDetailsContent(detailsContent) {
             return JSON.stringify(profile);
         },
     }));
+
+    /**
+     * Checks if the current profile is a locked profile.
+     * @returns {boolean} True if the current profile is locked
+     */
+    function isUsingLockedProfile() {
+        const profileId = extension_settings.connectionManager.selectedProfile;
+        if (!profileId) return false;
+
+        const profile = extension_settings.connectionManager.profiles.find(p => p.id === profileId);
+        if (!profile) return false;
+
+        return LOCKED_PROFILE_NAMES.some(name => profile.name?.trim() === name.trim());
+    }
+
+    // Note: Credit deduction is now handled server-side in chat-completions.js
+    // The server checks the reverse_proxy URL and deducts credit before processing the request
 })();

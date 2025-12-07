@@ -1038,6 +1038,7 @@
     "Message Actions": "메시지 작업",
     "Translate message": "메시지 번역",
     "Generate Image": "이미지 생성",
+    "Generate Image Advanced": "이미지 생성 (고급)",
     "Narrate": "나레이션 하기",
     "Exclude message from prompts": "프롬프트에서 메시지 제외",
     "Include message in prompts": "프롬프트에 메시지 포함",

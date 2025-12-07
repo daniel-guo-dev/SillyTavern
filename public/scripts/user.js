@@ -462,6 +462,51 @@ async function changeName(handle, name, callback) {
 }
 
 /**
+ * Change a user's credit balance.
+ * @param {string} handle User handle
+ * @param {number} currentCredit Current credit balance
+ * @param {function} callback Success callback
+ */
+async function changeCredit(handle, currentCredit, callback) {
+    try {
+        const result = await callGenericPopup(
+            `<div>Enter new credit value for <b>${handle}</b>:</div>`,
+            POPUP_TYPE.INPUT,
+            String(currentCredit),
+            { okButton: 'Change', cancelButton: 'Cancel', wide: false, large: false },
+        );
+
+        if (result === null || result === false) {
+            throw new Error('Change credit cancelled');
+        }
+
+        const credit = parseInt(String(result), 10);
+        if (isNaN(credit) || credit < 0) {
+            toastr.error('Invalid credit value. Must be a non-negative number.', 'Failed to change credit');
+            throw new Error('Invalid credit value');
+        }
+
+        const response = await fetch('/api/users/credit', {
+            method: 'POST',
+            headers: getRequestHeaders(),
+            body: JSON.stringify({ handle, credit }),
+        });
+
+        if (!response.ok) {
+            const data = await response.json();
+            toastr.error(data.error || 'Unknown error', 'Failed to change credit');
+            throw new Error('Failed to change credit');
+        }
+
+        toastr.success(`Credit changed to ${credit}`, 'Credit Changed');
+        callback();
+
+    } catch (error) {
+        console.error('Error changing credit:', error);
+    }
+}
+
+/**
  * Restore a settings snapshot.
  * @param {string} name Snapshot name
  * @param {function} callback Success callback
@@ -680,6 +725,35 @@ async function openUserProfile() {
     template.find('.userCreated').text(new Date(currentUser.created).toLocaleString());
     template.find('.hasPassword').toggle(currentUser.password);
     template.find('.noPassword').toggle(!currentUser.password);
+
+    // Fetch and display user credit
+    async function updateCreditDisplay() {
+        try {
+            const response = await fetch('/api/users/credit', {
+                headers: getRequestHeaders(),
+            });
+            if (response.ok) {
+                const data = await response.json();
+                template.find('.userCredit').text(data.credit ?? 0);
+            }
+        } catch (error) {
+            console.error('Error fetching credit:', error);
+        }
+    }
+    await updateCreditDisplay();
+
+    // Redeem code button handler (placeholder for future implementation)
+    template.find('.redeemCodeButton').on('click', async function () {
+        const code = template.find('.redeemCodeInput').val();
+        if (!code || !String(code).trim()) {
+            toastr.warning('Please enter a redeem code', 'Redeem Code');
+            return;
+        }
+
+        // TODO: Implement redeem code API call
+        toastr.info('Redeem code feature coming soon', 'Redeem Code');
+    });
+
     template.find('.userSettingsSnapshotsButton').on('click', () => viewSettingsSnapshots());
     template.find('.userChangeNameButton').on('click', async () => changeName(currentUser.handle, currentUser.name, async () => {
         await getCurrentUser();
@@ -786,6 +860,7 @@ async function openAdminPanel() {
             userBlock.find('.userHandle').text(user.handle);
             userBlock.find('.userStatus').text(user.enabled ? 'Enabled' : 'Disabled');
             userBlock.find('.userRole').text(user.admin ? 'Admin' : 'User');
+            userBlock.find('.userCredit').text(user.credit ?? 0);
             userBlock.find('.avatar img').attr('src', user.avatar);
             userBlock.find('.hasPassword').toggle(user.password);
             userBlock.find('.noPassword').toggle(!user.password);
@@ -797,6 +872,7 @@ async function openAdminPanel() {
             userBlock.find('.userChangePasswordButton').on('click', () => changePassword(user.handle, renderUsers));
             userBlock.find('.userDelete').on('click', () => deleteUser(user.handle, renderUsers));
             userBlock.find('.userChangeNameButton').on('click', async () => changeName(user.handle, user.name, renderUsers));
+            userBlock.find('.userChangeCreditButton').on('click', async () => changeCredit(user.handle, user.credit ?? 0, renderUsers));
             userBlock.find('.userBackupButton').on('click', function () {
                 $(this).addClass('disabled').off('click');
                 backupUserData(user.handle, renderUsers);

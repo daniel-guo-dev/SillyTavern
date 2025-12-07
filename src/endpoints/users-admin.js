@@ -14,6 +14,8 @@ import {
     getPasswordHash,
     getUserDirectories,
     ensurePublicDirectoriesExist,
+    getUserCredit,
+    setUserCredit,
 } from '../users.js';
 import { DEFAULT_USER } from '../constants.js';
 
@@ -36,6 +38,7 @@ router.post('/get', requireAdminMiddleware, async (_request, response) => {
                         enabled: user.enabled,
                         created: user.created,
                         password: !!user.password,
+                        credit: user.credit ?? 0,
                     }),
                 );
             }));
@@ -246,6 +249,49 @@ router.post('/slugify', requireAdminMiddleware, async (request, response) => {
         return response.send(text);
     } catch (error) {
         console.error('Slugify failed:', error);
+        return response.sendStatus(500);
+    }
+});
+
+router.get('/credit/:handle', requireAdminMiddleware, async (request, response) => {
+    try {
+        const handle = request.params.handle;
+        if (!handle) {
+            console.warn('Get credit failed: Missing handle');
+            return response.status(400).json({ error: 'Missing handle' });
+        }
+
+        const credit = await getUserCredit(handle);
+        return response.json({ handle, credit });
+    } catch (error) {
+        console.error('Get credit failed:', error);
+        return response.sendStatus(500);
+    }
+});
+
+router.post('/credit', requireAdminMiddleware, async (request, response) => {
+    try {
+        if (!request.body.handle) {
+            console.warn('Set credit failed: Missing required fields');
+            return response.status(400).json({ error: 'Missing required fields' });
+        }
+
+        const credit = parseInt(request.body.credit, 10);
+        if (isNaN(credit) || credit < 0) {
+            console.warn('Set credit failed: Invalid credit value');
+            return response.status(400).json({ error: 'Invalid credit value' });
+        }
+
+        const success = await setUserCredit(request.body.handle, credit);
+        if (!success) {
+            console.error('Set credit failed: User not found');
+            return response.status(404).json({ error: 'User not found' });
+        }
+
+        console.info(`Credit set to ${credit} for user ${request.body.handle}`);
+        return response.json({ handle: request.body.handle, credit });
+    } catch (error) {
+        console.error('Set credit failed:', error);
         return response.sendStatus(500);
     }
 });

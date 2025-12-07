@@ -958,6 +958,7 @@
     "Message Actions": "Actions des messages",
     "Translate message": "Traduire le message",
     "Generate Image": "Générer une image",
+    "Generate Image Advanced": "Générer une image avancé",
     "Narrate": "Narrer",
     "Exclude message from prompts": "Exclure le message des prompts",
     "Include message in prompts": "Inclure le message dans les prompts",
